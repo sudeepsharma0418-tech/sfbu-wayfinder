@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>SFBU Wayfinder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,600..800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: wayfinding kiosk. Sign-style control panel beside a live 3D floor you can walk through. */
+:root{
+  --bg:#e9ece9; --panel:#f7f8f6; --ink:#17201c; --muted:#56635d; --line:#c9d0cb;
+  --accent:#f0b400; --on-accent:#17201c;
+  --stage:#dfe4e0; --ground:#d3d9d4; --corridor:#f4f5f2; --wall:#5f6b66; --furniture:#9aa59f;
+  --r-study:#9cc3b3; --r-class:#a9bfe0; --r-social:#e6c49b; --r-lab:#c3b2df; --r-service:#d2d3c6; --r-outdoor:#b9d49b;
+  --display:'Archivo','Arial Narrow',Arial,sans-serif;
+  --body:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101513; --panel:#161c19; --ink:#e4ebe7; --muted:#97a59e; --line:#2b3530;
+  --accent:#f5c02a; --on-accent:#141a17;
+  --stage:#0d1210; --ground:#1a211e; --corridor:#2b3430; --wall:#a7b4ad; --furniture:#4a5650;
+  --r-study:#2f5a4c; --r-class:#34486b; --r-social:#6b5232; --r-lab:#4d3f6c; --r-service:#4a4c40; --r-outdoor:#3e5a2c;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#101513; --panel:#161c19; --ink:#e4ebe7; --muted:#97a59e; --line:#2b3530;
+  --accent:#f5c02a; --on-accent:#141a17;
+  --stage:#0d1210; --ground:#1a211e; --corridor:#2b3430; --wall:#a7b4ad; --furniture:#4a5650;
+  --r-study:#2f5a4c; --r-class:#34486b; --r-social:#6b5232; --r-lab:#4d3f6c; --r-service:#4a4c40; --r-outdoor:#3e5a2c;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{box-sizing:border-box;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:16px}
+*,*::before,*::after{box-sizing:inherit}
+.app{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px;height:100%;max-width:1400px;margin-inline:auto}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:20px;overflow-y:auto;min-width:0}
+.sign{background:var(--ink);color:var(--bg);border-radius:6px;padding:14px 16px;display:grid;gap:4px}
+.sign h1{margin:0;font-family:var(--display);font-stretch:75%;font-weight:800;font-size:30px;line-height:1;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+.sign p{margin:0;font-size:14px;opacity:.85}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.field{display:grid;gap:8px}
+select,button{font:inherit}
+select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font-weight:700}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{flex:1 1 auto;padding:10px 14px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-weight:700;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn:focus-visible,select:focus-visible,.pad button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.where{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:10px 12px;border:1px dashed var(--line);border-radius:6px}
+.where b{font-family:var(--display);font-stretch:85%;font-size:18px}
+ol.steps{margin:0;padding:0;list-style:none;counter-reset:s;display:grid;gap:10px}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
+ol.steps li::before{content:counter(s);display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--on-accent);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+ol.steps li.end::before{content:"✓"}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;border:1px solid var(--line)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.note{margin-top:auto;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:12px}
+.stage{position:relative;border-radius:10px;overflow:hidden;background:var(--stage);border:1px solid var(--line);min-width:0;min-height:320px;touch-action:none}
+.stage canvas{display:block;width:100%;height:100%;cursor:grab}
+.labels{position:absolute;inset:0;pointer-events:none}
+.label{position:absolute;transform:translate(-50%,-100%);background:var(--ink);color:var(--bg);font-weight:700;font-size:12px;padding:3px 8px;border-radius:4px;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.label i{width:8px;height:8px;border-radius:2px}
+.label.dest{background:var(--accent);color:var(--on-accent)}
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--accent);color:var(--on-accent);font-weight:700;padding:8px 14px;border-radius:6px;font-size:14px}
+.pad{position:absolute;right:14px;bottom:14px;display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(2,44px);gap:6px}
+.pad button{border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font-size:18px;font-weight:700;cursor:pointer;touch-action:none}
+.pad .up{grid-column:2;grid-row:1}.pad .left{grid-column:1;grid-row:2}.pad .down{grid-column:2;grid-row:2}.pad .right{grid-column:3;grid-row:2}
+.compass{position:absolute;left:14px;bottom:14px;font-size:12px;font-weight:700;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+@media (max-width:760px){
+  html,body{height:auto}
+  .app{grid-template-columns:1fr;height:auto}
+  .stage{order:-1;height:58vh}
+  .panel{overflow:visible}
+}
+</style>
+
+<div class="app">
+  <aside class="panel">
+    <div class="sign">
+      <h1>SFBU Wayfinder</h1>
+      <p>A 3D map you can walk through, so nobody gets lost on day one.</p>
+    </div>
+
+    <div class="field">
+      <label class="eyebrow" for="dest">Where to?</label>
+      <select id="dest"></select>
+      <div class="row">
+        <button class="btn" id="show">Show route</button>
+        <button class="btn primary" id="go">Walk me there</button>
+      </div>
+    </div>
+
+    <div>
+      <p class="eyebrow">Directions</p>
+      <ol class="steps" id="steps"></ol>
+    </div>
+
+    <div class="where" aria-live="polite"><span class="hint">You're in</span><b id="here">Entrance</b></div>
+
+    <div>
+      <p class="eyebrow">View</p>
+      <div class="row" role="group" aria-label="View">
+        <button class="btn" id="vOver" aria-pressed="true">Overview</button>
+        <button class="btn" id="vWalk" aria-pressed="false">Walk inside</button>
+      </div>
+      <p class="hint" style="margin-top:8px">Walk with the arrow keys <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> or the pad. Drag to look around.</p>
+    </div>
+
+    <div>
+      <p class="eyebrow">Room types</p>
+      <div class="legend">
+        <span><i style="background:var(--r-study)"></i>Study</span>
+        <span><i style="background:var(--r-lab)"></i>Tech</span>
+        <span><i style="background:var(--r-outdoor)"></i>Outdoor</span>
+        <span><i style="background:var(--r-social)"></i>Social</span>
+        <span><i style="background:var(--r-service)"></i>Services</span>
+      </div>
+    </div>
+
+    <p class="note">Prototype v1. Ground floor, built from my hand sketch of the building. Sizes are approximate. 1 grid square ≈ 2 m. Upstairs comes next.</p>
+  </aside>
+
+  <section class="stage" id="stage" aria-label="3D map of the campus building">
+    <div class="labels" id="labels"></div>
+    <div class="toast" id="toast" hidden></div>
+    <div class="compass" id="compass">N ↑</div>
+    <div class="pad" aria-label="Movement controls">
+      <button class="up" data-k="up" aria-label="Move forward">↑</button>
+      <button class="left" data-k="left" aria-label="Move left">←</button>
+      <button class="down" data-k="down" aria-label="Move back">↓</button>
+      <button class="right" data-k="right" aria-label="Move right">→</button>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/* ---------- Floor plan from my hand sketch (grid cells, 1 cell ≈ 2 m) ---------- */
+const W=30, H=25;
+// doors: [cell inside room x,y, neighbor cell x,y]
+const rooms=[
+  {id:'gameroom',name:'Game Room',          type:'social', x:1, y:0, w:10,h:3, doors:[[8,2,8,3]]},
+  {id:'gym',     name:'Gym',                type:'social', x:0, y:9, w:2, h:6, doors:[[1,13,2,13]]},
+  {id:'study',   name:'Study Room',         type:'study',  x:2, y:9, w:6, h:2, doors:[[7,9,8,9]]},
+  {id:'desk',    name:'Help Desk',          type:'service',x:2, y:11,w:6, h:2, doors:[[7,11,8,11]]},
+  {id:'it',      name:'IT',                 type:'tech',   x:2, y:15,w:2, h:4, doors:[[2,15,2,14]]},
+  {id:'wash',    name:'Washroom',           type:'service',x:5, y:15,w:2, h:6, doors:[[5,15,5,14]]},
+  {id:'cafe',    name:'Cafeteria',          type:'social', x:10,y:10,w:7, h:2, doors:[[10,10,9,10],[14,11,14,12]]},
+  {id:'outdoor', name:'Outdoor Area',       type:'outdoor',x:17,y:9, w:3, h:3, doors:[[17,10,16,10]]},
+  {id:'library', name:'Library',            type:'study',  x:10,y:12,w:2, h:5, doors:[[10,13,9,13],[11,15,12,15]]},
+  {id:'lrc',     name:'LRC',                type:'study',  x:12,y:12,w:7, h:9, doors:[[15,20,15,21]]},
+  {id:'lrcstudy',name:'LRC Study Room',     type:'study',  x:13,y:17,w:3, h:2, doors:[[14,17,14,16]]},
+  {id:'prayer',  name:'Prayer Room',        type:'service',x:19,y:17,w:3, h:2, doors:[[21,17,22,17]]},
+  {id:'reception',name:'Reception',         type:'service',x:19,y:19,w:3, h:2, doors:[[20,20,20,21]]},
+  {id:'elevator',name:'Elevator',           type:'service',x:24,y:17,w:1, h:3, doors:[[24,19,23,19]]},
+  {id:'admin',   name:'Admin Area',         type:'service',x:25,y:13,w:5, h:10,doors:[[25,21,24,21]]},
+  {id:'off1',    name:'Office 1',           type:'service',x:10,y:23,w:2, h:2, doors:[[10,23,10,22]],quiet:true},
+  {id:'off2',    name:'Office 2',           type:'service',x:12,y:23,w:2, h:2, doors:[[12,23,12,22]],quiet:true},
+  {id:'off3',    name:'Office 3',           type:'service',x:14,y:23,w:2, h:2, doors:[[14,23,14,22]],quiet:true},
+  {id:'off4',    name:'Office 4',           type:'service',x:16,y:23,w:2, h:2, doors:[[16,23,16,22]],quiet:true},
+];
+const spots=[
+  {id:'print',name:'Print Station',type:'tech',cell:[8,16]},
+  {id:'stairs',name:'Stairs',type:'service',cell:[22,18]},
+];
+const START=[22,22];
+const typeTok={study:'--r-study',tech:'--r-lab',social:'--r-social',service:'--r-service',outdoor:'--r-outdoor'};
+
+const region=Array.from({length:H},()=>Array(W).fill(null));
+const hallName=Array.from({length:H},()=>Array(W).fill(''));
+const hall=(x0,x1,y0,y1,n)=>{for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){region[y][x]='C';hallName[y][x]=n}};
+hall(8,9,3,22,'Main hallway');
+hall(2,7,13,14,'West hallway');
+hall(8,24,21,22,'LRC hallway');
+hall(22,23,17,20,'Stairs landing');
+rooms.forEach(r=>{for(let y=r.y;y<r.y+r.h;y++)for(let x=r.x;x<r.x+r.w;x++)region[y][x]=r.id});
+const roomById=Object.fromEntries(rooms.map(r=>[r.id,r]));
+const inb=(x,y)=>x>=0&&y>=0&&x<W&&y<H;
+const reg=(x,y)=>inb(x,y)?region[y][x]:null;
+const linked=(r,ax,ay,bx,by)=>r&&r.doors.some(d=>d[0]===ax&&d[1]===ay&&d[2]===bx&&d[3]===by);
+function canMove(ax,ay,bx,by){
+  const a=reg(ax,ay),b=reg(bx,by);
+  if(!a||!b)return false; if(a===b)return true;
+  return linked(roomById[a],ax,ay,bx,by)||linked(roomById[b],bx,by,ax,ay);
+}
+const wx=x=>x-W/2+.5, wz=y=>y-H/2+.5;
+const cellOf=(px,pz)=>[Math.floor(px+W/2),Math.floor(pz+H/2)];
+function placeName(x,y){
+  const r=reg(x,y); if(!r) return 'Outside';
+  if(r==='C') return (y===22&&(x===22||x===23))?'Entrance':hallName[y][x];
+  return roomById[r].name;
+}
+
+/* ---------- Three.js scene ---------- */
+const stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));
+stage.prepend(renderer.domElement);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(50,1,.05,200);
+scene.add(new THREE.HemisphereLight(0xffffff,0x888888,.85));
+const sun=new THREE.DirectionalLight(0xffffff,.55); sun.position.set(8,20,12); scene.add(sun);
+
+const tinted=[];
+function mat(tok,basic){const m=basic?new THREE.MeshBasicMaterial():new THREE.MeshLambertMaterial();tinted.push([m,tok]);return m}
+function recolor(){
+  tinted.forEach(([m,t])=>m.color.set(css(t)));
+  renderer.setClearColor(css('--stage'));
+  document.querySelectorAll('.label i').forEach(i=>i.style.background=`var(${i.dataset.tok})`);
+}
+
+const plane=(w,d,m,x,y,z)=>{const g=new THREE.PlaneGeometry(w,d);g.rotateX(-Math.PI/2);const o=new THREE.Mesh(g,m);o.position.set(x,y,z);scene.add(o);return o};
+plane(90,90,mat('--ground'),0,-.02,0);
+{ // hallway floor, one tile per cell
+  const g=new THREE.PlaneGeometry(1,1); g.rotateX(-Math.PI/2);
+  const cells=[]; for(let y=0;y<H;y++)for(let x=0;x<W;x++) if(region[y][x]==='C') cells.push([x,y]);
+  const im=new THREE.InstancedMesh(g,mat('--corridor'),cells.length), d=new THREE.Object3D();
+  cells.forEach(([x,y],i)=>{d.position.set(wx(x),0,wz(y));d.updateMatrix();im.setMatrixAt(i,d.matrix)});
+  scene.add(im);
+}
+plane(2,1,mat('--accent'),wx(22)+.5,.001,wz(23));
+rooms.forEach((r,i)=>plane(r.w,r.h,mat(typeTok[r.type]),wx(r.x)+(r.w-1)/2,.003+(r.id==='lrcstudy'?.004:0),wz(r.y)+(r.h-1)/2));
+
+/* walls */
+const WALL_H=1.15, edges=[];
+for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  if(!reg(x,y))continue;
+  [[1,0],[0,1],[-1,0],[0,-1]].forEach(([dx,dy])=>{
+    const nx=x+dx,ny=y+dy,n=reg(nx,ny);
+    const entrance=(dy===1&&y===22&&(x===22||x===23));
+    if(!n){ if(!entrance) edges.push([x,y,dx,dy]); return; }
+    if((dx===1||dy===1)&&!canMove(x,y,nx,ny)) edges.push([x,y,dx,dy]);
+  });
+}
+const wallGeo=new THREE.BoxGeometry(1.06,WALL_H,.09);
+const walls=new THREE.InstancedMesh(wallGeo,mat('--wall'),edges.length);
+const dummy=new THREE.Object3D();
+edges.forEach(([x,y,dx,dy],i)=>{
+  dummy.position.set(wx(x)+dx*.5,WALL_H/2,wz(y)+dy*.5);
+  dummy.rotation.set(0,dx?Math.PI/2:0,0); dummy.updateMatrix(); walls.setMatrixAt(i,dummy.matrix);
+});
+scene.add(walls);
+
+/* light furniture so each room reads as what it is */
+const furn=mat('--furniture');
+const box=(w,h,d,x,z)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),furn);o.position.set(x,h/2,z);scene.add(o)};
+const table=(x,z,r=.35)=>{const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,.42,18),furn);o.position.set(x,.21,z);scene.add(o)};
+rooms.forEach(r=>{
+  const L=wx(r.x),T=wz(r.y),cx=L+(r.w-1)/2;
+  if(r.id==='gameroom'){box(1.8,.5,1,L+2,T+.9);box(1.8,.5,1,L+5,T+.9);box(.6,.9,.4,L+8.4,T)}
+  if(r.id==='gym') for(let k=0;k<3;k++) box(.9,.35,.5,cx,T+.7+k*1.6);
+  if(r.id==='study') for(let k=0;k<3;k++) box(.9,.42,.6,L+.7+k*1.6,T+.4);
+  if(r.id==='desk') box(3.2,.6,.45,L+2.4,T+.6);
+  if(r.id==='it') box(.9,.5,.45,cx,T+2.4);
+  if(r.id==='wash') for(let k=0;k<3;k++) box(1.6,.9,.06,cx,T+1.6+k*1.3);
+  if(r.id==='cafe') for(let k=0;k<4;k++) table(L+1.8+k*1.4,T+.5,.3);
+  if(r.id==='outdoor'){table(cx-.6,T+.7,.3);table(cx+.6,T+1.6,.3)}
+  if(r.id==='library') for(let k=0;k<3;k++) box(1.3,.9,.22,cx,T+.6+k*1.6);
+  if(r.id==='lrc'){for(let row=0;row<2;row++)for(let c=0;c<3;c++) box(1.1,.42,.6,L+1.2+c*2,T+1.2+row*1.8)}
+  if(r.id==='lrcstudy') box(1.4,.42,.6,cx,T+.6);
+  if(r.id==='reception') box(2,.6,.4,cx,T+.4);
+  if(r.id==='prayer') box(1.8,.06,.9,cx,T+.6);
+  if(r.id==='admin') for(let row=0;row<3;row++)for(let c=0;c<2;c++) box(1.1,.42,.6,L+1.4+c*2,T+1.2+row*2.4);
+  if(r.id.startsWith('off')) box(.9,.42,.45,cx,T+1);
+  if(r.id==='elevator') box(.6,1,.06,L+.3,wz(19));
+});
+for(let k=0;k<5;k++) box(.9,.08+k*.14,.36,wx(23),wz(18)+.3-k*.36); // stairs going up
+box(.5,.6,.4,wx(8)-.2,wz(16)); // print station
+
+/* avatar */
+const avatar=new THREE.Group();
+const body=new THREE.Mesh(new THREE.CylinderGeometry(.17,.2,.55,20),mat('--accent'));body.position.y=.3;
+const head=new THREE.Mesh(new THREE.SphereGeometry(.14,20,14),mat('--ink'));head.position.y=.72;
+const noseG=new THREE.ConeGeometry(.08,.22,12);noseG.rotateX(-Math.PI/2);
+const nose=new THREE.Mesh(noseG,mat('--ink'));nose.position.set(0,.3,-.26);
+avatar.add(body,head,nose); scene.add(avatar);
+const me={x:wx(START[0])+.5,z:wz(START[1]),yaw:0};
+
+/* route */
+const routeGroup=new THREE.Group(); scene.add(routeGroup);
+const arrowGeo=new THREE.ConeGeometry(.17,.36,3); arrowGeo.rotateX(-Math.PI/2);
+const routeMat=mat('--accent',true);
+const ringGeo=new THREE.TorusGeometry(.38,.06,10,40); ringGeo.rotateX(Math.PI/2);
+let arrows=[], destRing=null, path=[];
+
+/* ---------- Labels ---------- */
+const labelsEl=document.getElementById('labels');
+const labelItems=[];
+function addLabel(name,type,x,z,id){
+  const el=document.createElement('div'); el.className='label';
+  const i=document.createElement('i'); i.dataset.tok=typeTok[type]; el.append(i,document.createTextNode(name));
+  labelsEl.append(el); labelItems.push({el,v:new THREE.Vector3(x,1.75,z),id});
+}
+rooms.filter(r=>!r.quiet).forEach(r=>addLabel(r.name,r.type,wx(r.x)+(r.w-1)/2,wz(r.y)+(r.h-1)/2,r.id));
+addLabel('Offices','service',wx(13)+.5,wz(23)+.5,'offices');
+spots.forEach(s=>addLabel(s.name,s.type,wx(s.cell[0]),wz(s.cell[1]),s.id));
+
+/* ---------- Pathfinding + directions ---------- */
+const destSel=document.getElementById('dest');
+const targets=[...rooms.map(r=>({id:r.id,name:r.name,cell:r.doors[0].slice(0,2)})),...spots.map(s=>({id:s.id,name:s.name,cell:s.cell}))]
+  .sort((a,b)=>a.name.localeCompare(b.name));
+targets.forEach(t=>{const o=document.createElement('option');o.value=t.id;o.textContent=t.name;destSel.append(o)});
+destSel.value='gameroom';
+
+function bfs(s,g){
+  const key=(x,y)=>y*W+x, prev=new Map([[key(...s),null]]), q=[s];
+  while(q.length){
+    const [x,y]=q.shift(); if(x===g[0]&&y===g[1])break;
+    for(const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]]){
+      const nx=x+dx,ny=y+dy,k=key(nx,ny);
+      if(!prev.has(k)&&canMove(x,y,nx,ny)){prev.set(k,[x,y]);q.push([nx,ny])}
+    }
+  }
+  if(!prev.has(key(...g)))return [];
+  const out=[];let c=g;while(c){out.unshift(c);c=prev.get(key(...c))}
+  return out;
+}
+const gridDir=yaw=>{const fx=Math.round(Math.sin(yaw)),fz=Math.round(-Math.cos(yaw));return Math.abs(fx)>=Math.abs(fz)?[Math.sign(fx)||0,0]:[0,Math.sign(fz)]};
+function turnWord(a,b){
+  const cross=a[0]*b[1]-a[1]*b[0], dot=a[0]*b[0]+a[1]*b[1];
+  if(dot===1)return null; if(dot===-1)return 'Turn around';
+  return cross>0?'Turn right':'Turn left';
+}
+function directions(p,t){
+  const steps=[]; if(p.length<2){return [{t:`You're already at ${t.name}.`,end:true}]}
+  const segs=[];
+  for(let i=1;i<p.length;i++){
+    const d=[p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]];
+    const last=segs[segs.length-1];
+    if(last&&last.d[0]===d[0]&&last.d[1]===d[1])last.n++; else segs.push({d,n:1,at:p[i-1]});
+  }
+  let facing=gridDir(me.yaw);
+  segs.forEach((s,i)=>{
+    const tw=turnWord(facing,s.d), m=s.n*2, along=placeName(...s.at);
+    const walk=`walk about ${m} m${along!=='Outside'&&i>0?` along the ${along.toLowerCase()}`:''}.`;
+    steps.push({t:tw?`${tw}, then ${walk}`:`Go straight and ${walk}`});
+    facing=s.d;
+  });
+  steps.push({t:`${t.name} is right here.`,end:true});
+  return steps;
+}
+function showRoute(){
+  const t=targets.find(x=>x.id===destSel.value);
+  const here=cellOf(me.x,me.z);
+  path=bfs(here,t.cell);
+  routeGroup.clear(); arrows=[];
+  for(let i=0;i<path.length-1;i++){
+    const [x,y]=path[i],[x2,y2]=path[i+1];
+    const a=new THREE.Mesh(arrowGeo,routeMat);
+    a.position.set(wx(x)+(x2-x)*.5,.06,wz(y)+(y2-y)*.5);
+    a.rotation.y=Math.atan2(-(x2-x),-(y2-y)); routeGroup.add(a); arrows.push(a);
+  }
+  destRing=new THREE.Mesh(ringGeo,routeMat); destRing.position.set(wx(t.cell[0]),.06,wz(t.cell[1])); routeGroup.add(destRing);
+  const ol=document.getElementById('steps'); ol.innerHTML='';
+  directions(path,t).forEach(s=>{const li=document.createElement('li');li.textContent=s.t;if(s.end)li.className='end';ol.append(li)});
+  labelItems.forEach(l=>l.el.classList.toggle('dest',l.id===t.id));
+  return t;
+}
+
+/* ---------- Controls ---------- */
+const keys={up:0,down:0,left:0,right:0};
+const keyMap={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
+addEventListener('keydown',e=>{const k=keyMap[e.code];if(k&&!(e.target instanceof HTMLSelectElement)){keys[k]=1;auto=null;e.preventDefault()}});
+addEventListener('keyup',e=>{const k=keyMap[e.code];if(k)keys[k]=0});
+document.querySelectorAll('.pad button').forEach(b=>{
+  const k=b.dataset.k;
+  b.addEventListener('pointerdown',e=>{keys[k]=1;auto=null;b.setPointerCapture(e.pointerId)});
+  ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=0));
+});
+
+let mode='over', orbit={theta:.25,phi:.95,R:31}, drag=null;
+const cv=renderer.domElement;
+cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing'});
+cv.addEventListener('pointermove',e=>{
+  if(!drag)return; const dx=e.clientX-drag.x,dy=e.clientY-drag.y; drag={x:e.clientX,y:e.clientY};
+  if(mode==='over'){orbit.theta-=dx*.006;orbit.phi=Math.min(1.45,Math.max(.35,orbit.phi+dy*.005))}
+  else me.yaw+=dx*.005;
+});
+['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>{drag=null;cv.style.cursor='grab'}));
+cv.addEventListener('wheel',e=>{if(mode!=='over')return;e.preventDefault();orbit.R=Math.min(38,Math.max(9,orbit.R+e.deltaY*.02))},{passive:false});
+
+const vOver=document.getElementById('vOver'),vWalk=document.getElementById('vWalk');
+function setMode(m){mode=m;vOver.setAttribute('aria-pressed',m==='over');vWalk.setAttribute('aria-pressed',m==='walk');avatar.visible=m==='over'}
+vOver.onclick=()=>setMode('over'); vWalk.onclick=()=>setMode('walk');
+
+let auto=null;
+const toast=document.getElementById('toast'); let toastT=0;
+function say(msg){toast.textContent=msg;toast.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>toast.hidden=true,2600)}
+document.getElementById('show').onclick=()=>showRoute();
+document.getElementById('go').onclick=()=>{
+  const t=showRoute(); if(path.length<2){say(`You're at ${t.name}`);return}
+  auto={pts:path.slice(1).map(([x,y])=>[wx(x),wz(y)]),i:0,name:t.name};
+};
+destSel.onchange=()=>showRoute();
+
+function tryMove(nx,nz){
+  const [cx,cy]=cellOf(me.x,me.z),[tx,ty]=cellOf(nx,nz);
+  if(cx===tx&&cy===ty){me.x=nx;me.z=nz;return true}
+  if(Math.abs(cx-tx)+Math.abs(cy-ty)===1&&canMove(cx,cy,tx,ty)){me.x=nx;me.z=nz;return true}
+  return false;
+}
+
+/* ---------- Loop ---------- */
+const hereEl=document.getElementById('here'), compass=document.getElementById('compass');
+let lastPlace='', last=performance.now(), t0=last;
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000); last=now;
+  if(auto){
+    const [tx,tz]=auto.pts[auto.i], dx=tx-me.x, dz=tz-me.z, d=Math.hypot(dx,dz);
+    const want=Math.atan2(dx,-dz); let dy=((want-me.yaw+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
+    me.yaw+=Math.max(-1,Math.min(1,dy))*Math.min(1,dt*8);
+    const step=Math.min(d,2.6*dt);
+    if(d<.02){auto.i++; if(auto.i>=auto.pts.length){say(`You made it to ${auto.name}`);auto=null}}
+    else {me.x+=dx/d*step;me.z+=dz/d*step}
+  } else {
+    // arrows move the person; they never turn the view
+    const fwd=mode==='walk'?[Math.sin(me.yaw),-Math.cos(me.yaw)]:[-Math.sin(orbit.theta),-Math.cos(orbit.theta)];
+    const rgt=[-fwd[1],fwd[0]];
+    const f=keys.up-keys.down, s=keys.right-keys.left;
+    let mx=fwd[0]*f+rgt[0]*s, mz=fwd[1]*f+rgt[1]*s; const len=Math.hypot(mx,mz);
+    if(len){
+      mx=mx/len*3*dt; mz=mz/len*3*dt;
+      const nx=me.x+mx,nz=me.z+mz;
+      if(!tryMove(nx,nz)){tryMove(nx,me.z)||tryMove(me.x,nz)}
+      if(mode==='over') me.yaw=Math.atan2(mx,-mz);
+    }
+  }
+  avatar.position.set(me.x,0,me.z); avatar.rotation.y=-me.yaw;
+
+  if(mode==='over'){
+    const {theta,phi,R}=orbit;
+    camera.position.set(R*Math.cos(phi)*Math.sin(theta),R*Math.sin(phi),R*Math.cos(phi)*Math.cos(theta));
+    camera.lookAt(0,0,0);
+  } else {
+    camera.position.set(me.x,.75,me.z);
+    camera.lookAt(me.x+Math.sin(me.yaw),.68,me.z-Math.cos(me.yaw));
+  }
+
+  const t=(now-t0)/1000;
+  if(!reduce) arrows.forEach((a,i)=>{const s=1+.22*Math.max(0,Math.sin(t*5-i*.6));a.scale.set(s,s,s)});
+  if(destRing&&!reduce) destRing.scale.setScalar(1+.12*Math.sin(t*3));
+
+  const place=placeName(...cellOf(me.x,me.z));
+  if(place!==lastPlace){hereEl.textContent=place;lastPlace=place}
+  const heading=mode==='walk'?['N','NE','E','SE','S','SW','W','NW'][((Math.round(me.yaw/(Math.PI/4))%8)+8)%8]:null;
+  compass.textContent=heading?`Facing ${heading}`:'N ↑ Game Room side';
+
+  const w=stage.clientWidth,h=stage.clientHeight,v=new THREE.Vector3();
+  labelItems.forEach(l=>{
+    v.copy(l.v).project(camera);
+    const far=mode==='walk'&&Math.hypot(l.v.x-me.x,l.v.z-me.z)>7;
+    if(v.z>1||far){l.el.hidden=true;return}
+    l.el.hidden=false; l.el.style.left=((v.x*.5+.5)*w)+'px'; l.el.style.top=((-v.y*.5+.5)*h)+'px';
+  });
+  renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+new ResizeObserver(resize).observe(stage); resize();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',recolor);
+new MutationObserver(recolor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+recolor(); showRoute(); requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
