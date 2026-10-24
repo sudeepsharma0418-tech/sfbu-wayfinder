@@ -109,6 +109,14 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
 .people .empty{font-size:13px;color:var(--muted);margin:0}
 .label.person{background:var(--panel);color:var(--ink);border:2px solid var(--pc,var(--line))}
 .say{position:absolute;transform:translate(-50%,-100%);max-width:180px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:4px 9px;font-size:12px;font-weight:700;box-shadow:0 3px 10px rgba(0,0,0,.18);overflow-wrap:anywhere}
+.welcome{display:grid;gap:10px}
+.welcome h2{margin:0;font-family:var(--display);font-stretch:80%;font-weight:800;font-size:24px;line-height:1.1;text-wrap:balance}
+.welcome .eyebrow{margin:0}
+.dests{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.dests button{font:inherit;font-weight:700;text-align:left;padding:10px 12px;min-height:48px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:8px}
+.dests button i{width:10px;height:10px;border-radius:3px;flex:none}
+.dests button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.dests button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .handle,.topbar{display:none}
 /* Phone: works like a maps app. Full-screen map, floating title, bottom sheet you can pull up. */
 @media (max-width:760px){
@@ -126,7 +134,7 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
   .panel.open{max-height:86%}
   .handle{display:grid;place-items:center;position:sticky;top:-6px;z-index:2;margin:-6px -16px 0;padding:10px 0 6px;background:var(--panel);border:0;width:calc(100% + 32px);cursor:pointer;color:var(--muted);font:inherit;font-size:12px;font-weight:700;gap:4px}
   .handle::before{content:"";width:44px;height:5px;border-radius:3px;background:var(--line)}
-  .eta{order:1}.chat{order:2}.people{order:2}.field{order:3}.panel>div:has(#steps){order:4}.where{order:5}.panel>div:has(#vOver){order:6}.panel>div:has(.legend){order:7}.note{order:8}
+  .welcome{order:1}.eta{order:1}.chat{order:2}.people{order:2}.field{order:3}.panel>div:has(#steps){order:4}.where{order:5}.panel>div:has(#vOver){order:6}.panel>div:has(.legend){order:7}.note{order:8}
   .handle{order:0}
   .log{max-height:150px}
   .pad{display:none;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(var(--sheet,46vh) + 12px);grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,48px)}
@@ -145,6 +153,12 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
       <h1>SFBU Wayfinder</h1>
       <p>A 3D map you can walk through, so nobody gets lost on day one.</p>
     </div>
+
+    <section class="welcome" aria-label="Where do you want to go?">
+      <p class="eyebrow" id="wHere">You're at the entrance</p>
+      <h2 id="wTitle">Where do you want to go?</h2>
+      <div class="dests" id="dests"></div>
+    </section>
 
     <section class="chat" aria-label="Ask the guide">
       <div class="chat-head"><p class="eyebrow">Ask the guide</p><span class="mode" id="chatMode">Quick search</span></div>
@@ -582,6 +596,23 @@ async function ask(q){
 askForm.addEventListener('submit',e=>{e.preventDefault();ask(askIn.value)});
 document.querySelectorAll('#chips .chip').forEach(c=>c.onclick=()=>ask(c.textContent));
 
+/* ---------- Where do you want to go? (opens from the entrance QR code) ---------- */
+const POPULAR=['reception','lrc','library','cafe','it','print','wash','admin','gameroom','prayer'];
+const destsEl=document.getElementById('dests');
+POPULAR.forEach(id=>{
+  const t=targets.find(x=>x.id===id); if(!t)return;
+  const tp=(roomById[id]||spots.find(s=>s.id===id)).type;
+  const b=document.createElement('button'); b.type='button'; b.dataset.id=id; b.setAttribute('aria-pressed','false');
+  const i=document.createElement('i'); i.style.background=`var(${typeTok[tp]})`; b.append(i,t.name);
+  b.onclick=()=>{
+    destsEl.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+    document.getElementById('wTitle').textContent='Going to '+t.name;
+    destSel.value=id; document.getElementById('go').click();
+  };
+  destsEl.append(b);
+});
+setInterval(()=>{document.getElementById('wHere').textContent="You're at: "+placeName(...cellOf(me.x,me.z))},1000);
+
 /* ---------- People here now (live, v2) ---------- */
 const PALETTE=['#e4572e','#2a9d8f','#8e44ad','#3a86ff','#d81b60','#6a994e','#f77f00','#118ab2'];
 const peopleEl=document.getElementById('people'), listEl=document.getElementById('peopleList'), countEl=document.getElementById('peopleCount');
@@ -803,7 +834,7 @@ function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSiz
 new ResizeObserver(resize).observe(stage); resize();
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',recolor);
 new MutationObserver(recolor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-recolor(); showRoute(); updateEta(); requestAnimationFrame(frame); say('Tap anywhere on the map to walk there');
+recolor(); updateEta(); requestAnimationFrame(frame); say('Pick where you want to go');
 })();
 </script>
 
