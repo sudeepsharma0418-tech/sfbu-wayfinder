@@ -117,6 +117,19 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
 .dests button i{width:10px;height:10px;border-radius:3px;flex:none}
 .dests button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .dests button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.more{border-top:1px solid var(--line);padding-top:12px}
+.more summary{cursor:pointer;font-weight:700;color:var(--muted);font-size:14px;list-style-position:inside}
+.more summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.more-body{display:flex;flex-direction:column;gap:20px;margin-top:14px}
+.tripbar{display:none}
+body.trip .app{grid-template-columns:minmax(0,1fr)}
+body.trip .panel{display:none}
+body.trip .tripbar{display:grid;position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:min(520px,calc(100% - 32px));gap:8px;z-index:4}
+body.trip .tripbar .eta{box-shadow:0 8px 28px rgba(0,0,0,.28)}
+.tripbtns{display:flex;gap:8px}
+.tripbtns .btn{background:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.tripbtns .btn[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+body.trip .pad{bottom:150px}
 .handle,.topbar{display:none}
 /* Phone: works like a maps app. Full-screen map, floating title, bottom sheet you can pull up. */
 @media (max-width:760px){
@@ -134,7 +147,9 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
   .panel.open{max-height:86%}
   .handle{display:grid;place-items:center;position:sticky;top:-6px;z-index:2;margin:-6px -16px 0;padding:10px 0 6px;background:var(--panel);border:0;width:calc(100% + 32px);cursor:pointer;color:var(--muted);font:inherit;font-size:12px;font-weight:700;gap:4px}
   .handle::before{content:"";width:44px;height:5px;border-radius:3px;background:var(--line)}
-  .welcome{order:1}.eta{order:1}.chat{order:2}.people{order:2}.field{order:3}.panel>div:has(#steps){order:4}.where{order:5}.panel>div:has(#vOver){order:6}.panel>div:has(.legend){order:7}.note{order:8}
+  .welcome{order:1}.more{order:2}.note{order:3}
+  body.trip .tripbar{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:auto;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));transform:none}
+  body.trip .compass{display:none}
   .handle{order:0}
   .log{max-height:150px}
   .pad{display:none;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(var(--sheet,46vh) + 12px);grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,48px)}
@@ -160,6 +175,9 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
       <div class="dests" id="dests"></div>
     </section>
 
+    <details class="more" id="more">
+    <summary>More: ask the guide, people, directions</summary>
+    <div class="more-body">
     <section class="chat" aria-label="Ask the guide">
       <div class="chat-head"><p class="eyebrow">Ask the guide</p><span class="mode" id="chatMode">Quick search</span></div>
       <div class="log" id="chatLog" aria-live="polite">
@@ -197,12 +215,6 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
       </div>
     </div>
 
-    <div class="eta" id="eta" aria-live="polite">
-      <div class="big" id="etaMin">–</div>
-      <div class="arr" id="etaArr">Pick a place</div>
-      <div class="sub" id="etaSub">Now <span class="clock" id="etaNow"></span></div>
-    </div>
-
     <div>
       <p class="eyebrow">Directions</p>
       <ol class="steps" id="steps"></ol>
@@ -230,12 +242,26 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
       </div>
     </div>
 
+    </div>
+    </details>
+
     <p class="note">Prototype v2. New: ask the guide in your own words, live walking time, and see classmates on the map. Ground floor, built from my hand sketch of the building. Sizes are approximate. 1 grid square ≈ 2 m. Upstairs comes next.</p>
   </aside>
 
   <section class="stage" id="stage" aria-label="3D map of the campus building">
     <div class="labels" id="labels"></div>
     <div class="toast" id="toast" hidden></div>
+    <div class="tripbar" id="tripbar">
+      <div class="eta" id="eta" aria-live="polite">
+        <div class="big" id="etaMin">–</div>
+        <div class="arr" id="etaArr">Pick a place</div>
+        <div class="sub" id="etaSub">Now <span class="clock" id="etaNow"></span></div>
+    </div>
+      <div class="tripbtns">
+        <button class="btn" id="tripChange" type="button">Change place</button>
+        <button class="btn" id="tripView" type="button" aria-pressed="false">Walk view</button>
+      </div>
+    </div>
     <div class="compass" id="compass">N ↑</div>
     <div class="pad" aria-label="Movement controls">
       <button class="up" data-k="up" aria-label="Move forward">↑</button>
@@ -680,7 +706,7 @@ function renderList(){
     const wave=document.createElement('button');wave.type='button';wave.textContent='Wave';
     wave.onclick=()=>{room.presence({wave:{to:k,t:Date.now()}}).catch(()=>{});say('You waved at '+o.name)};
     const go=document.createElement('button');go.type='button';go.className='go2';go.textContent='Go to';
-    go.onclick=()=>{const t=showRoute({id:'peer:'+k,name:o.name,cell});if(path.length<2){say(`You're with ${o.name}`);return}auto={pts:path.slice(1).map(([x,y])=>[wx(x),wz(y)]),i:0,name:o.name}};
+    go.onclick=()=>{enterTrip();const t=showRoute({id:'peer:'+k,name:o.name,cell});if(path.length<2){say(`You're with ${o.name}`);return}auto={pts:path.slice(1).map(([x,y])=>[wx(x),wz(y)]),i:0,name:o.name}};
     row(o.col,o.name,where+(o.status?' · '+o.status:''),[wave,go]);
   }
   if(!others.size){const p=document.createElement('p');p.className='empty';p.textContent='Share this map with a classmate. When they open it, they show up here and on the map.';listEl.append(p)}
@@ -744,7 +770,7 @@ cv.addEventListener('pointerup',e=>{
   if(!ray.ray.intersectPlane(floorPlane,hitPt))return;
   const c=cellOf(hitPt.x,hitPt.z);
   if(!reg(...c)){say("You can't walk there");return}
-  const t=showRoute({id:'tap',name:placeName(...c),cell:c});
+  enterTrip(); const t=showRoute({id:'tap',name:placeName(...c),cell:c});
   if(!path.length){say("No way to get there");return}
   if(path.length<2){say("You're already here");return}
   auto={pts:path.slice(1).map(([x,y])=>[wx(x),wz(y)]),i:0,name:t.name};
@@ -755,11 +781,16 @@ function setMode(m){mode=m;vOver.setAttribute('aria-pressed',m==='over');vWalk.s
 vOver.onclick=()=>setMode('over'); vWalk.onclick=()=>setMode('walk');
 
 let auto=null;
+const tripView=document.getElementById('tripView');
+function enterTrip(){document.body.classList.add('trip');panelEl.classList.remove('open')}
+function exitTrip(){document.body.classList.remove('trip');auto=null}
+document.getElementById('tripChange').onclick=exitTrip;
+tripView.onclick=()=>{const w=mode!=='walk';setMode(w?'walk':'over');tripView.setAttribute('aria-pressed',w);tripView.textContent=w?'Map view':'Walk view'};
 const toast=document.getElementById('toast'); let toastT=0;
 function say(msg){toast.textContent=msg;toast.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>toast.hidden=true,2600)}
 document.getElementById('show').onclick=()=>showRoute();
 document.getElementById('go').onclick=()=>{
-  const t=showRoute(); if(path.length<2){say(`You're at ${t.name}`);return}
+  enterTrip(); const t=showRoute(); if(path.length<2){say(`You're at ${t.name}`);return}
   auto={pts:path.slice(1).map(([x,y])=>[wx(x),wz(y)]),i:0,name:t.name};
 };
 destSel.onchange=()=>showRoute();
