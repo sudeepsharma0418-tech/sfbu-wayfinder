@@ -15,6 +15,8 @@ Pick a room and the map draws the route and gives you step by step directions. Y
 
 **Phone app layout.** On a phone the map fills the screen and the controls sit in a bottom sheet you can pull up, like a maps app.
 
+**People here now.** Everyone who has the map open shows up as their own avatar with their name. You can wave, send a short message, or get walking directions to them. This works when the map is opened inside Claude.
+
 These ideas came from my Week 10 SCAMPER and Week 11 AI opportunities work. Version 1 is still here as `v1.html`.
 
 ## How to use
