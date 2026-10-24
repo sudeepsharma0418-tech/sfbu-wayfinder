@@ -13,6 +13,8 @@ Pick a room and the map draws the route and gives you step by step directions. Y
 
 **Live walking time.** Like a maps app, the map shows how many minutes to walk, the distance, and the time you will arrive. It updates live as you walk.
 
+**Phone app layout.** On a phone the map fills the screen and the controls sit in a bottom sheet you can pull up, like a maps app.
+
 These ideas came from my Week 10 SCAMPER and Week 11 AI opportunities work. Version 1 is still here as `v1.html`.
 
 ## How to use
