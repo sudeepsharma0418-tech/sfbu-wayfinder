@@ -62,6 +62,22 @@ ol.steps li.end::before{content:"✓"}
 .hint{font-size:13px;color:var(--muted);margin:0}
 .note{margin-top:auto;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
 kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:12px}
+.chat{display:grid;gap:10px;border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--bg)}
+.chat-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.chat-head .eyebrow{margin:0}
+.mode{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.mode.ai{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.log{display:grid;gap:8px;max-height:220px;overflow-y:auto;font-size:14px}
+.msg{padding:8px 10px;border-radius:8px;max-width:92%;min-width:0;overflow-wrap:anywhere}
+.msg.bot{background:var(--panel);border:1px solid var(--line);justify-self:start}
+.msg.me{background:var(--ink);color:var(--bg);justify-self:end}
+.msg .go{margin-top:6px;display:block;width:100%;padding:6px 10px;border-radius:6px;border:0;background:var(--accent);color:var(--on-accent);font-weight:700;cursor:pointer;font:inherit;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.ask{display:flex;gap:6px}
+.ask input{flex:1;min-width:0;font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.ask button{padding:9px 14px}
+.chip:focus-visible,.ask input:focus-visible,.msg .go:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .stage{position:relative;border-radius:10px;overflow:hidden;background:var(--stage);border:1px solid var(--line);min-width:0;min-height:320px;touch-action:none}
 .stage canvas{display:block;width:100%;height:100%;cursor:grab}
 .labels{position:absolute;inset:0;pointer-events:none}
@@ -88,8 +104,26 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
       <p>A 3D map you can walk through, so nobody gets lost on day one.</p>
     </div>
 
+    <section class="chat" aria-label="Ask the guide">
+      <div class="chat-head"><p class="eyebrow">Ask the guide</p><span class="mode" id="chatMode">Quick search</span></div>
+      <div class="log" id="chatLog" aria-live="polite">
+        <div class="msg bot">Hi! Tell me what you need, like "where can I print?" or "I need wifi help". I'll find the room and draw the route.</div>
+      </div>
+      <div class="chips" id="chips">
+        <button class="chip" type="button">Where can I print?</button>
+        <button class="chip" type="button">My student login isn't working</button>
+        <button class="chip" type="button">I'm hungry</button>
+        <button class="chip" type="button">Where do I go on my first day?</button>
+      </div>
+      <form class="ask" id="askForm">
+        <label for="askIn" class="eyebrow" hidden>Your question</label>
+        <input id="askIn" autocomplete="off" placeholder="Type what you need…">
+        <button class="btn primary" id="askBtn">Ask</button>
+      </form>
+    </section>
+
     <div class="field">
-      <label class="eyebrow" for="dest">Where to?</label>
+      <label class="eyebrow" for="dest">Or pick a room</label>
       <select id="dest"></select>
       <div class="row">
         <button class="btn" id="show">Show route</button>
@@ -124,7 +158,7 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
       </div>
     </div>
 
-    <p class="note">Prototype v1. Ground floor, built from my hand sketch of the building. Sizes are approximate. 1 grid square ≈ 2 m. Upstairs comes next.</p>
+    <p class="note">Prototype v2. New: ask the guide in your own words. Ground floor, built from my hand sketch of the building. Sizes are approximate. 1 grid square ≈ 2 m. Upstairs comes next.</p>
   </aside>
 
   <section class="stage" id="stage" aria-label="3D map of the campus building">
@@ -368,10 +402,102 @@ function showRoute(){
   return t;
 }
 
+/* ---------- Ask the guide (v2) ---------- */
+const info={
+  gameroom:'games, table tennis, hanging out between classes', gym:'working out, exercise',
+  study:'quiet group study', desk:'general student questions, help with forms and campus info',
+  it:'wifi, student login and password problems, laptop help', wash:'restroom, bathroom, toilet',
+  cafe:'food, coffee, lunch, snacks, microwave', outdoor:'fresh air, sitting outside, a break',
+  library:'books, borrowing, quiet reading', lrc:'Learning Resource Center: tutoring, computers, study space',
+  lrcstudy:'small private study room inside the LRC', prayer:'prayer, quiet reflection',
+  reception:'front desk, first stop for new students and visitors, checking in',
+  elevator:'going upstairs, accessible route', admin:'admin and staff offices, school paperwork',
+  off1:'faculty office', off2:'faculty office', off3:'faculty office', off4:'faculty office',
+  print:'printing papers and assignments', stairs:'going upstairs'
+};
+const KW={
+  print:['print','printer','printing','paper copy','copies'],
+  it:['wifi','wi-fi','internet','password','login','log in','laptop','canvas','email account','tech'],
+  wash:['bathroom','restroom','toilet','washroom','wash my hands'],
+  cafe:['food',' eat','coffee','lunch','hungry','snack','cafeteria','microwave','drink'],
+  reception:['first day','new student','visitor','check in','front desk','reception','orientation'],
+  desk:['question','help desk','form','id card','student id'],
+  library:['book','library','borrow',' read'],
+  lrc:['tutor','tutoring','homework help','lrc','learning'],
+  lrcstudy:['private room','book a room','small room'],
+  study:['study','group work','quiet'],
+  gameroom:['game','ping pong','table tennis','relax','hang out','fun'],
+  gym:['gym','workout','exercise','lift'],
+  outdoor:['outside','fresh air','sun','smoke'],
+  prayer:['pray','prayer','meditat'],
+  elevator:['elevator','lift up','wheelchair','accessible','upstairs'],
+  stairs:['stairs','second floor'],
+  admin:['admin','admission','staff','paperwork','registrar','financial'],
+};
+function keywordFind(q){
+  const s=' '+q.toLowerCase()+' '; let best=null,score=0;
+  for(const [id,words] of Object.entries(KW)){
+    let n=0; words.forEach(w=>{if(s.includes(w))n+=w.length});
+    const t=targets.find(x=>x.id===id); if(t&&s.includes(t.name.toLowerCase()))n+=20;
+    if(n>score){score=n;best=id}
+  }
+  return best;
+}
+const logEl=document.getElementById('chatLog'), askForm=document.getElementById('askForm'),
+      askIn=document.getElementById('askIn'), askBtn=document.getElementById('askBtn'), modeEl=document.getElementById('chatMode');
+function bubble(cls,text){const d=document.createElement('div');d.className='msg '+cls;d.textContent=text;logEl.append(d);logEl.scrollTop=logEl.scrollHeight;return d}
+function offerRoute(el,id){
+  const t=targets.find(x=>x.id===id); if(!t)return;
+  destSel.value=id; showRoute();
+  const b=document.createElement('button'); b.type='button'; b.className='go'; b.textContent='Walk me to '+t.name;
+  b.onclick=()=>{destSel.value=id;document.getElementById('go').click()};
+  el.append(b); logEl.scrollTop=logEl.scrollHeight;
+}
+let sample=null; const turns=[];
+const RULES=()=>`You are the SFBU Wayfinder guide, a friendly helper on a 3D map of the ground floor of San Francisco Bay University's building. New students tell you what they need. Pick the ONE best place from this list and answer in simple, short sentences (under 40 words). If nothing fits, say so kindly and suggest Reception. Only use places in this list. Do not invent hours, staff names or services.
+
+Places (id | name | what people go there for):
+${targets.map(t=>`${t.id} | ${t.name} | ${info[t.id]||''}`).join('\n')}
+
+The student is now at: ${placeName(...cellOf(me.x,me.z))}.
+
+Reply with only JSON: {"reply": "your short answer", "room": "place id or null"}`;
+(async()=>{
+  try{ if(window.claude&&window.claude.use) sample=await window.claude.use('sample'); }catch(e){ sample=null }
+  if(sample){modeEl.textContent='AI guide';modeEl.classList.add('ai')}
+})();
+function quickAnswer(q,el){
+  const id=keywordFind(q);
+  if(id){const t=targets.find(x=>x.id===id); el.textContent=`Try the ${t.name}. People go there for ${info[id]}. I drew the route on the map.`; offerRoute(el,id)}
+  else el.textContent="I'm not sure where that is. Try Reception, they can help with almost anything. Or pick a room from the list below.";
+}
+async function ask(q){
+  q=q.trim(); if(!q)return;
+  bubble('me',q); askIn.value=''; askBtn.disabled=true;
+  const el=bubble('bot','Thinking…');
+  if(!sample){quickAnswer(q,el);askBtn.disabled=false;return}
+  turns.push({role:'user',content:q});
+  try{
+    const out=await sample.json([{role:'user',content:RULES()},...turns.slice(-6)],{modelTier:'quick',cache:false});
+    const reply=String(out&&out.reply||'').trim()||'Here is what I found.';
+    el.textContent=reply; turns.push({role:'assistant',content:reply});
+    const id=out&&typeof out.room==='string'?out.room:null;
+    if(id&&targets.some(t=>t.id===id)) offerRoute(el,id);
+  }catch(e){
+    turns.pop();
+    const off=['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(e&&e.code);
+    if(off){sample=null;modeEl.textContent='Quick search';modeEl.classList.remove('ai')}
+    if(e&&e.code==='rate_limited'){el.textContent='Too many questions at once. Wait a moment and ask again.'}
+    else quickAnswer(q,el);
+  }finally{askBtn.disabled=false}
+}
+askForm.addEventListener('submit',e=>{e.preventDefault();ask(askIn.value)});
+document.querySelectorAll('#chips .chip').forEach(c=>c.onclick=()=>ask(c.textContent));
+
 /* ---------- Controls ---------- */
 const keys={up:0,down:0,left:0,right:0};
 const keyMap={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
-addEventListener('keydown',e=>{const k=keyMap[e.code];if(k&&!(e.target instanceof HTMLSelectElement)){keys[k]=1;auto=null;e.preventDefault()}});
+addEventListener('keydown',e=>{const k=keyMap[e.code];if(k&&!(e.target instanceof HTMLSelectElement)&&!(e.target instanceof HTMLInputElement)){keys[k]=1;auto=null;e.preventDefault()}});
 addEventListener('keyup',e=>{const k=keyMap[e.code];if(k)keys[k]=0});
 document.querySelectorAll('.pad button').forEach(b=>{
   const k=b.dataset.k;
@@ -474,6 +600,7 @@ new MutationObserver(recolor).observe(document.documentElement,{attributes:true,
 recolor(); showRoute(); requestAnimationFrame(frame);
 })();
 </script>
+
 
 </body>
 </html>
