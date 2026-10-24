@@ -24,7 +24,7 @@ These ideas came from my Week 10 SCAMPER and Week 11 AI opportunities work. Vers
 1. Open `index.html` in a browser (or the GitHub Pages link).
 2. Choose a room under **Where to?**
 3. Click **Show route** or **Walk me there**.
-4. Use the arrow keys or the on screen pad to walk. Drag to look around.
+4. Tap anywhere on the map to walk there. Drag to look around. Arrow keys work on a laptop.
 
 ## How it was made
 

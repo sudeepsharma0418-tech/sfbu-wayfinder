@@ -129,7 +129,7 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
   .eta{order:1}.chat{order:2}.people{order:2}.field{order:3}.panel>div:has(#steps){order:4}.where{order:5}.panel>div:has(#vOver){order:6}.panel>div:has(.legend){order:7}.note{order:8}
   .handle{order:0}
   .log{max-height:150px}
-  .pad{right:max(12px,env(safe-area-inset-right,0px));bottom:calc(var(--sheet,46vh) + 12px);grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,48px)}
+  .pad{display:none;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(var(--sheet,46vh) + 12px);grid-template-columns:repeat(3,48px);grid-template-rows:repeat(2,48px)}
   .compass{left:max(12px,env(safe-area-inset-left,0px));bottom:calc(var(--sheet,46vh) + 12px);top:auto}
   .btn,.ask input,select{min-height:44px}
   .ask input{font-size:16px}
@@ -202,7 +202,7 @@ kbd{font-family:inherit;font-weight:700;border:1px solid var(--line);border-bott
         <button class="btn" id="vOver" aria-pressed="true">Overview</button>
         <button class="btn" id="vWalk" aria-pressed="false">Walk inside</button>
       </div>
-      <p class="hint" style="margin-top:8px">Walk with the arrow keys <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> or the pad. Drag to look around.</p>
+      <p class="hint" style="margin-top:8px"><b>Tap anywhere on the map to walk there.</b> Drag to look around. Arrow keys still work on a laptop.</p>
     </div>
 
     <div>
@@ -701,6 +701,23 @@ cv.addEventListener('pointermove',e=>{
 });
 ['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>{drag=null;cv.style.cursor='grab'}));
 cv.addEventListener('wheel',e=>{if(mode!=='over')return;e.preventDefault();orbit.R=Math.min(38,Math.max(9,orbit.R+e.deltaY*.02))},{passive:false});
+/* tap anywhere to walk there (easier than arrows) */
+const ray=new THREE.Raycaster(), floorPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0), hitPt=new THREE.Vector3();
+let tapStart=null;
+cv.addEventListener('pointerdown',e=>{tapStart={x:e.clientX,y:e.clientY,t:performance.now()}});
+cv.addEventListener('pointerup',e=>{
+  if(!tapStart)return; const moved=Math.hypot(e.clientX-tapStart.x,e.clientY-tapStart.y), held=performance.now()-tapStart.t; tapStart=null;
+  if(moved>10||held>600)return;
+  const r=cv.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),camera);
+  if(!ray.ray.intersectPlane(floorPlane,hitPt))return;
+  const c=cellOf(hitPt.x,hitPt.z);
+  if(!reg(...c)){say("You can't walk there");return}
+  const t=showRoute({id:'tap',name:placeName(...c),cell:c});
+  if(!path.length){say("No way to get there");return}
+  if(path.length<2){say("You're already here");return}
+  auto={pts:path.slice(1).map(([x,y])=>[wx(x),wz(y)]),i:0,name:t.name};
+});
 
 const vOver=document.getElementById('vOver'),vWalk=document.getElementById('vWalk');
 function setMode(m){mode=m;vOver.setAttribute('aria-pressed',m==='over');vWalk.setAttribute('aria-pressed',m==='walk');avatar.visible=m==='over'}
@@ -786,7 +803,7 @@ function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSiz
 new ResizeObserver(resize).observe(stage); resize();
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',recolor);
 new MutationObserver(recolor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-recolor(); showRoute(); updateEta(); requestAnimationFrame(frame);
+recolor(); showRoute(); updateEta(); requestAnimationFrame(frame); say('Tap anywhere on the map to walk there');
 })();
 </script>
 
